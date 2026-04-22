@@ -31,7 +31,7 @@ if(isset($_SESSION['usuario'])){ header("Location: home.php"); exit(); }
                 <label>Nombre completo</label>
                 <div class="input-wrap">
                     <span class="input-icon">👤</span>
-                    <input type="text" name="nombre" placeholder="Juan Pérez" required>
+                    <input type="text" name="nombre" placeholder="Nombre de usuario" required>
                 </div>
             </div>
 
@@ -39,7 +39,7 @@ if(isset($_SESSION['usuario'])){ header("Location: home.php"); exit(); }
                 <label>Correo electrónico</label>
                 <div class="input-wrap">
                     <span class="input-icon">✉</span>
-                    <input type="email" name="email" placeholder="tu@email.com" required>
+                    <input type="email" name="email" placeholder="tu@gmail.com" required>
                 </div>
             </div>
 

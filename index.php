@@ -32,7 +32,7 @@
 
     <div class="hero-right">
         <div class="hero-card">
-            <img src="img/Logo.png" alt="EquiRed Logo">
+            <img src="img/logocirculo.png" alt="EquiRed Logo">
             <div class="card-title">Equi<span>Red</span></div>
             <p class="card-subtitle">Conectando oportunidades,<br>Construyendo igualdad.</p>
         </div>
