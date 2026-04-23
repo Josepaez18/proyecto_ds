@@ -6,26 +6,22 @@ $rol        = $_SESSION['rol'] ?? '';
 $usuario_id = $_SESSION['usuario_id'] ?? null;
 $msg        = $_GET['msg'] ?? '';
 
-// Stats
-$total_empleos  = $pdo->query("SELECT COUNT(*) FROM empleos")->fetchColumn() ?: 6;
-$total_empresas = $pdo->query("SELECT COUNT(*) FROM usuarios WHERE rol='empresa'")->fetchColumn();
+$total_empleos  = (int)$pdo->query("SELECT COUNT(*) FROM empleos")->fetchColumn() ?: 6;
+$total_empresas = (int)$pdo->query("SELECT COUNT(*) FROM usuarios WHERE rol='empresa'")->fetchColumn();
 
-// Mis postulaciones
 $mis_post = []; $total_mis_post = 0;
 if($usuario_id && $rol !== 'empresa') {
-    $sp = $pdo->prepare("SELECT p.*,e.titulo,e.descripcion,u.nombre AS empresa_nombre FROM postulaciones p JOIN empleos e ON p.empleo_id=e.id JOIN usuarios u ON e.empresa_id=u.id WHERE p.usuario_id=? ORDER BY p.fecha DESC");
+    $sp = $pdo->prepare("SELECT p.*,e.titulo,u.nombre AS empresa_nombre FROM postulaciones p JOIN empleos e ON p.empleo_id=e.id JOIN usuarios u ON e.empresa_id=u.id WHERE p.usuario_id=? ORDER BY p.fecha DESC");
     $sp->execute([$usuario_id]); $mis_post=$sp->fetchAll(); $total_mis_post=count($mis_post);
 }
 
-// Vacantes de la empresa con postulaciones
 $mis_vacantes = [];
 if($rol === 'empresa' && $usuario_id) {
     $sv = $pdo->prepare("SELECT e.*, COUNT(p.id) AS total_post FROM empleos e LEFT JOIN postulaciones p ON p.empleo_id=e.id WHERE e.empresa_id=? GROUP BY e.id ORDER BY e.fecha DESC");
     $sv->execute([$usuario_id]); $mis_vacantes=$sv->fetchAll();
 }
 
-// Empleos BD
-$empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOIN usuarios u ON e.empresa_id=u.id ORDER BY e.fecha DESC")->fetchAll();
+$empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre,u.id AS emp_user_id FROM empleos e JOIN usuarios u ON e.empresa_id=u.id ORDER BY e.fecha DESC")->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -41,7 +37,7 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
         .empleos-hero p{color:#777;font-size:15px;margin-top:10px;max-width:580px;margin-inline:auto;line-height:1.6}
         .toast{position:fixed;top:80px;right:24px;z-index:999;padding:14px 22px;border-radius:12px;font-size:15px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,0.15);animation:slideIn 0.3s ease,fadeOut 0.4s ease 3s forwards}
         .toast-exito{background:#d1fae5;color:#059669;border:1px solid #a7f3d0}
-        .toast-warning{background:#fef3c7;color:#d97706;border:1px solid #fde68a}
+        .toast-warning{background:#fef3c7;color:#d97706}
         @keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
         @keyframes fadeOut{from{opacity:1}to{opacity:0;visibility:hidden}}
         .search-bar{display:flex;gap:12px;margin-bottom:28px;background:white;padding:14px 18px;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06)}
@@ -50,12 +46,12 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
         .fsel{padding:10px 16px;border:1.5px solid #e8e8e8;border-radius:10px;font-size:14px;font-family:inherit;outline:none;background:#f9f9f9;color:#555;min-width:180px;cursor:pointer}
         .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
         .stat-card{background:white;border-radius:14px;padding:20px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,0.06)}
-        .stat-card.clickable{cursor:pointer;border:1.5px solid #f0f0f0;transition:box-shadow 0.2s,transform 0.2s,border-color 0.2s}
+        .stat-card.clickable{cursor:pointer;border:1.5px solid #f0f0f0;transition:all 0.2s}
         .stat-card.clickable:hover{box-shadow:0 6px 20px rgba(123,47,247,0.15);transform:translateY(-2px);border-color:#7b2ff7}
         .stat-num{font-size:32px;font-weight:900;color:#7b2ff7}.stat-label{font-size:13px;color:#888;margin-top:4px}
         .stat-hint{font-size:11px;color:#a855f7;margin-top:4px;font-weight:600}
         .empleos-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:40px}
-        .empleo-card{background:white;border-radius:16px;padding:22px;box-shadow:0 2px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:12px;border:1.5px solid #f0f0f0;transition:border-color 0.2s,box-shadow 0.2s}
+        .empleo-card{background:white;border-radius:16px;padding:22px;box-shadow:0 2px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:12px;border:1.5px solid #f0f0f0;transition:border-color 0.2s,box-shadow 0.2s;position:relative}
         .empleo-card:hover{border-color:#7b2ff7;box-shadow:0 4px 20px rgba(123,47,247,0.1)}
         .eh{display:flex;justify-content:space-between;align-items:flex-start}
         .el{display:flex;gap:12px;align-items:flex-start}
@@ -68,7 +64,12 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
         .ed{font-size:14px;color:#555;line-height:1.6}
         .btn-postular{width:100%;padding:11px;background:linear-gradient(135deg,#7b2ff7,#a855f7);color:white;border:none;border-radius:10px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;transition:opacity 0.2s}
         .btn-postular:hover{opacity:0.9}
-        .btn-pub-emp{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7b2ff7,#a855f7);color:white;padding:11px 24px;border-radius:10px;font-weight:800;font-size:14px;border:none;cursor:pointer;font-family:inherit;margin-bottom:28px;transition:opacity 0.2s}
+
+        /* Botón eliminar empleo */
+        .btn-del-empleo{position:absolute;top:12px;right:12px;background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:background 0.2s;z-index:2}
+        .btn-del-empleo:hover{background:#fecaca}
+
+        .btn-pub-emp{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#7b2ff7,#a855f7);color:white;padding:11px 24px;border-radius:10px;font-weight:800;font-size:14px;border:none;cursor:pointer;font-family:inherit;margin-bottom:28px}
         .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center;padding:20px}
         .modal-overlay.active{display:flex}
         .modal{background:white;border-radius:20px;padding:36px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto}
@@ -87,22 +88,18 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
         .bmd{flex:2;padding:12px;background:#dc2626;color:white;border:none;border-radius:10px;font-weight:800;font-family:inherit;cursor:pointer}
         .fl{display:flex;align-items:center;gap:8px;padding:12px 14px;border:1.5px dashed #d8b4fe;border-radius:10px;cursor:pointer;font-size:14px;color:#7b2ff7;font-weight:700;margin-bottom:14px;background:#faf5ff}
         .fl input{display:none}
-        /* Postulaciones */
         .pi{background:#fafafa;border-radius:12px;padding:14px 16px;margin-bottom:10px;border-left:4px solid #7b2ff7;display:flex;justify-content:space-between;align-items:center}
         .pi.aceptado{border-left-color:#10b981}.pi.rechazado{border-left-color:#ef4444}
         .pi-info strong{display:block;font-size:14px;font-weight:800;color:#1a1a2e}
         .pi-info span{font-size:12px;color:#888}
         .eb{padding:4px 12px;border-radius:50px;font-size:12px;font-weight:800}
         .ep{background:#fef3c7;color:#d97706}.ea{background:#d1fae5;color:#059669}.er{background:#fee2e2;color:#dc2626}
-        /* Vacantes empresa */
-        .vacante-item{background:#fafafa;border-radius:12px;padding:16px;margin-bottom:12px;border:1.5px solid #f0f0f0;transition:border-color 0.2s}
-        .vacante-item:hover{border-color:#7b2ff7}
+        .vacante-item{background:#fafafa;border-radius:12px;padding:16px;margin-bottom:12px;border:1.5px solid #f0f0f0}
         .vi-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
         .vi-titulo{font-size:15px;font-weight:800;color:#1a1a2e}
         .vi-tipo{font-size:11px;font-weight:700;padding:4px 10px;border-radius:50px;background:#f3e8ff;color:#7b2ff7}
         .vi-meta{font-size:13px;color:#888}
         .btn-ver-hv{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#7b2ff7,#a855f7);color:white;padding:8px 16px;border-radius:8px;font-weight:700;font-size:13px;border:none;cursor:pointer;font-family:inherit;margin-top:8px}
-        /* Hojas de vida */
         .hv-item{background:white;border-radius:12px;padding:16px;margin-bottom:10px;border:1.5px solid #e8e8e8}
         .hv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
         .hv-nombre{font-size:14px;font-weight:800;color:#1a1a2e}
@@ -110,8 +107,7 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
         .hv-link{display:inline-flex;align-items:center;gap:4px;color:#7b2ff7;font-weight:700;font-size:13px;text-decoration:none}
         .hv-acciones{display:flex;gap:8px;margin-top:10px}
         .ba{flex:1;padding:8px;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
-        .ba-acep{background:#d1fae5;color:#059669}
-        .ba-rech{background:#fee2e2;color:#dc2626}
+        .ba-acep{background:#d1fae5;color:#059669}.ba-rech{background:#fee2e2;color:#dc2626}
         .ns{text-align:center;padding:30px;color:#aaa}
     </style>
 </head>
@@ -120,10 +116,10 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
 
 <?php if($msg==='exito'): ?><div class="toast toast-exito">✅ ¡Postulación enviada!</div>
 <?php elseif($msg==='ya_postulado'): ?><div class="toast toast-warning">⚠️ Ya te postulaste a este empleo.</div>
-<?php elseif($msg==='empleo_publicado'): ?><div class="toast toast-exito">✅ ¡Empleo publicado!</div><?php endif; ?>
+<?php elseif($msg==='empleo_publicado'): ?><div class="toast toast-exito">✅ ¡Empleo publicado!</div>
+<?php elseif($msg==='empleo_eliminado'): ?><div class="toast toast-exito">🗑️ Empleo eliminado.</div><?php endif; ?>
 
 <div class="empleos-page">
-
     <div class="empleos-hero">
         <h1>Empleos <span>Inclusivos</span></h1>
         <p>Lista extensa de oportunidades laborales en empresas comprometidas con la diversidad y la inclusión.</p>
@@ -136,9 +132,7 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
     <?php endif; ?>
 
     <div class="search-bar">
-        <div class="siw"><span class="sic">🔍</span>
-            <input type="text" id="buscar" placeholder="Buscar por puesto o empresa..." oninput="filtrar()">
-        </div>
+        <div class="siw"><span class="sic">🔍</span><input type="text" id="buscar" placeholder="Buscar por puesto o empresa..." oninput="filtrar()"></div>
         <select class="fsel" id="filtroTipo" onchange="filtrar()">
             <option value="">Todos los empleos</option>
             <option value="Tiempo completo">Tiempo completo</option>
@@ -147,18 +141,17 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
         </select>
     </div>
 
-    <!-- Stats -->
     <div class="stats-row">
         <div class="stat-card"><div class="stat-num"><?= $total_empleos ?></div><div class="stat-label">Empleos disponibles</div></div>
         <div class="stat-card"><div class="stat-num"><?= $total_empresas>0?$total_empresas:'150+' ?></div><div class="stat-label">Empresas</div></div>
         <?php if($rol==='empresa' && $usuario_id): ?>
-            <div class="stat-card clickable" onclick="document.getElementById('mVacantes').classList.add('active')" title="Ver mis vacantes">
+            <div class="stat-card clickable" onclick="document.getElementById('mVacantes').classList.add('active')">
                 <div class="stat-num"><?= count($mis_vacantes) ?></div>
-                <div class="stat-label">Mis vacantes publicadas</div>
+                <div class="stat-label">Mis vacantes</div>
                 <div class="stat-hint">👆 Ver postulantes</div>
             </div>
         <?php elseif(isset($_SESSION['usuario']) && $rol!=='empresa'): ?>
-            <div class="stat-card clickable" onclick="document.getElementById('mPostulaciones').classList.add('active')" title="Ver mis postulaciones">
+            <div class="stat-card clickable" onclick="document.getElementById('mPostulaciones').classList.add('active')">
                 <div class="stat-num"><?= $total_mis_post ?></div>
                 <div class="stat-label">Mis postulaciones</div>
                 <div class="stat-hint">👆 Ver detalle</div>
@@ -174,12 +167,12 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
         $iconos=['💼','💻','🎧','📋','🎨','📞','👥','🔧'];
         if(empty($empleos)):
             $ejs=[
-                ['🎧','Operador(a) Telefónico(a)','TechCall Solutions','Bogotá, Colombia','$2,500,000 - $3,200,000/mes','Hace 2 días','Tiempo completo','Buscamos operadores telefónicos. Ofrecemos capacitación completa.'],
-                ['💻','Desarrollador(a) Web','Digital Inclusion','Medellín (Remoto)','$4,000,000 - $6,000,000/mes','Hace 5 días','Tiempo completo','Únete a nuestro equipo diverso de desarrollo.'],
-                ['📋','Auxiliar Administrativo(a)','Empresa Inclusiva SA','Cali, Colombia','$1,800,000 - $2,200,000/mes','Hace 3 días','Media jornada','Empresa comprometida con la inclusión busca auxiliar.'],
-                ['🎨','Diseñador(a) Gráfico(a)','Creative Minds','Barranquilla','$3,000,000 - $4,500,000/mes','Hace 1 día','Freelance','Estudio creativo busca diseñadores con portafolio.'],
-                ['👥','Asistente RRHH','EquiHR Consulting','Cartagena','$2,800,000 - $3,800,000/mes','Hace 4 días','Tiempo completo','Consultora especializada en diversidad busca asistente.'],
-                ['📞','Atención al Cliente','ServiPlus','Bucaramanga','$2,200,000 - $2,800,000/mes','Hace 1 día','Tiempo completo','Empresa líder busca personas con ganas de aprender.'],
+                ['🎧','Operador(a) Telefónico(a)','TechCall Solutions','Bogotá, Colombia','$2,500,000 - $3,200,000/mes','Hace 2 días','Tiempo completo','Buscamos operadores telefónicos. Ofrecemos capacitación completa.',null],
+                ['💻','Desarrollador(a) Web','Digital Inclusion','Medellín (Remoto)','$4,000,000 - $6,000,000/mes','Hace 5 días','Tiempo completo','Únete a nuestro equipo diverso de desarrollo.',null],
+                ['📋','Auxiliar Administrativo(a)','Empresa Inclusiva SA','Cali, Colombia','$1,800,000 - $2,200,000/mes','Hace 3 días','Media jornada','Empresa comprometida con la inclusión busca auxiliar.',null],
+                ['🎨','Diseñador(a) Gráfico(a)','Creative Minds','Barranquilla','$3,000,000 - $4,500,000/mes','Hace 1 día','Freelance','Estudio creativo busca diseñadores con portafolio.',null],
+                ['👥','Asistente RRHH','EquiHR Consulting','Cartagena','$2,800,000 - $3,800,000/mes','Hace 4 días','Tiempo completo','Consultora especializada en diversidad busca asistente.',null],
+                ['📞','Atención al Cliente','ServiPlus','Bucaramanga','$2,200,000 - $2,800,000/mes','Hace 1 día','Tiempo completo','Empresa líder busca personas con ganas de aprender.',null],
             ];
             foreach($ejs as $e): ?>
             <div class="empleo-card" data-titulo="<?= $e[1] ?>" data-empresa="<?= $e[2] ?>" data-tipo="<?= $e[6] ?>">
@@ -194,9 +187,17 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
             </div>
             <?php endforeach;
         else:
-            $i=0; foreach($empleos as $emp):
-            $tipo_real = !empty($emp['tipo']) ? $emp['tipo'] : 'Tiempo completo'; ?>
+            $i=0;
+            foreach($empleos as $emp):
+                $tipo_real = !empty($emp['tipo']) ? $emp['tipo'] : 'Tiempo completo';
+                $es_mio_emp = ($rol==='empresa' && $usuario_id == $emp['emp_user_id']); ?>
             <div class="empleo-card" data-titulo="<?= htmlspecialchars($emp['titulo']) ?>" data-empresa="<?= htmlspecialchars($emp['empresa_nombre']) ?>" data-tipo="<?= $tipo_real ?>">
+
+                <!-- Botón eliminar solo para la empresa dueña -->
+                <?php if($es_mio_emp): ?>
+                <button class="btn-del-empleo" onclick="confirmarEliminarEmpleo(<?= $emp['id'] ?>, '<?= htmlspecialchars($emp['titulo'],ENT_QUOTES) ?>')">🗑️ Eliminar</button>
+                <?php endif; ?>
+
                 <div class="eh"><div class="el"><div class="ei"><?= $iconos[$i%count($iconos)] ?></div><div><div class="et"><?= htmlspecialchars($emp['titulo']) ?></div><div class="ee"><?= htmlspecialchars($emp['empresa_nombre']) ?></div></div></div><span class="badge-tipo"><?= $tipo_real ?></span></div>
                 <div class="em">
                     <?php if(!empty($emp['ciudad'])): ?><span>📍 <?= htmlspecialchars($emp['ciudad']) ?></span><?php endif; ?>
@@ -215,7 +216,7 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
     </div>
 </div>
 
-<!-- Modal publicar empleo (empresa) -->
+<!-- Modal publicar empleo -->
 <?php if($rol==='empresa'): ?>
 <div class="modal-overlay" id="mEmpleo">
     <div class="modal">
@@ -224,7 +225,7 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
         <form action="acciones/publicar_empleo.php" method="POST">
             <div class="fg"><label>Título del puesto</label><input type="text" name="titulo" placeholder="Ej: Desarrollador Web" required></div>
             <div class="fr">
-                <div class="fg"><label>Tipo de empleo</label>
+                <div class="fg"><label>Tipo</label>
                     <select name="tipo" required>
                         <option value="Tiempo completo">Tiempo completo</option>
                         <option value="Media jornada">Media jornada</option>
@@ -243,44 +244,52 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
     </div>
 </div>
 
-<!-- Modal vacantes + postulantes (empresa) -->
+<!-- Modal confirmar eliminar empleo -->
+<div class="modal-overlay" id="mEliminarEmpleo">
+    <div class="modal" style="max-width:440px">
+        <h3>🗑️ Eliminar empleo</h3>
+        <p style="color:#555;font-size:14px;line-height:1.6;margin:12px 0 20px">¿Estás seguro que quieres eliminar <strong id="del-emp-titulo"></strong>? Se eliminarán también todas las postulaciones.</p>
+        <form action="acciones/eliminar_empleo.php" method="POST">
+            <input type="hidden" name="empleo_id" id="del-emp-id">
+            <div class="modal-btns">
+                <button type="button" class="bmc" onclick="document.getElementById('mEliminarEmpleo').classList.remove('active')">Cancelar</button>
+                <button type="submit" class="bmd">Sí, eliminar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal vacantes empresa -->
 <div class="modal-overlay" id="mVacantes">
     <div class="modal" style="max-width:620px">
         <button class="modal-close" onclick="document.getElementById('mVacantes').classList.remove('active')">✕</button>
         <h3>📋 Mis vacantes publicadas</h3>
-        <p class="modal-sub">Haz click en "Ver hojas de vida" para gestionar postulantes.</p>
         <?php if(empty($mis_vacantes)): ?>
             <div class="ns"><div style="font-size:36px;margin-bottom:10px">📭</div><p>No has publicado vacantes aún.</p></div>
         <?php else: foreach($mis_vacantes as $v): ?>
         <div class="vacante-item">
             <div class="vi-header">
                 <div class="vi-titulo"><?= htmlspecialchars($v['titulo']) ?></div>
-                <span class="vi-tipo"><?= htmlspecialchars($v['tipo'] ?? 'Tiempo completo') ?></span>
+                <span class="vi-tipo"><?= htmlspecialchars($v['tipo']??'Tiempo completo') ?></span>
             </div>
-            <div class="vi-meta">
-                <?php if(!empty($v['ciudad'])): ?>📍 <?= htmlspecialchars($v['ciudad']) ?> &nbsp;·&nbsp;<?php endif; ?>
-                👥 <?= $v['total_post'] ?> postulante(s)
-            </div>
-            <button class="btn-ver-hv" onclick="verHojaVida(<?= $v['id'] ?>, '<?= htmlspecialchars($v['titulo'],ENT_QUOTES) ?>')">
-                📄 Ver hojas de vida (<?= $v['total_post'] ?>)
-            </button>
+            <div class="vi-meta"><?php if(!empty($v['ciudad'])): ?>📍 <?= htmlspecialchars($v['ciudad']) ?> · <?php endif; ?>👥 <?= $v['total_post'] ?> postulante(s)</div>
+            <button class="btn-ver-hv" onclick="verHV(<?= $v['id'] ?>,'<?= htmlspecialchars($v['titulo'],ENT_QUOTES) ?>')">📄 Ver hojas de vida (<?= $v['total_post'] ?>)</button>
         </div>
         <?php endforeach; endif; ?>
     </div>
 </div>
 
-<!-- Modal hojas de vida de una vacante -->
+<!-- Modal hojas de vida -->
 <div class="modal-overlay" id="mHV">
     <div class="modal" style="max-width:620px">
         <button class="modal-close" onclick="document.getElementById('mHV').classList.remove('active')">✕</button>
         <h3 id="mHV-titulo">Hojas de vida</h3>
-        <div id="mHV-contenido"><div style="text-align:center;padding:20px;color:#aaa">Cargando...</div></div>
+        <div id="mHV-cont"><div style="text-align:center;padding:20px;color:#aaa">Cargando...</div></div>
     </div>
 </div>
-
 <?php endif; ?>
 
-<!-- Modal mis postulaciones (beneficiario/profesional) -->
+<!-- Modal mis postulaciones -->
 <?php if(isset($_SESSION['usuario']) && $rol!=='empresa'): ?>
 <div class="modal-overlay" id="mPostulaciones">
     <div class="modal">
@@ -299,9 +308,7 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
             </span>
         </div>
         <?php endforeach; endif; ?>
-        <div class="modal-btns" style="margin-top:16px">
-            <button class="bmc" onclick="document.getElementById('mPostulaciones').classList.remove('active')">Cerrar</button>
-        </div>
+        <div class="modal-btns" style="margin-top:16px"><button class="bmc" onclick="document.getElementById('mPostulaciones').classList.remove('active')">Cerrar</button></div>
     </div>
 </div>
 
@@ -309,13 +316,12 @@ $empleos = $pdo->query("SELECT e.*,u.nombre AS empresa_nombre FROM empleos e JOI
 <div class="modal-overlay" id="mPostular">
     <div class="modal">
         <button class="modal-close" onclick="document.getElementById('mPostular').classList.remove('active')">✕</button>
-        <h3>📄 Postularme a este empleo</h3>
-        <p class="modal-sub" id="mPostular-titulo"></p>
+        <h3>📄 Postularme</h3>
+        <p class="modal-sub" id="mP-titulo"></p>
         <form action="acciones/postular.php" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="empleo_id" id="mPostular-id">
-            <input type="hidden" name="empleo_titulo" id="mPostular-titulo-h">
-            <div class="fg">
-                <label>📎 Adjunta tu hoja de vida (PDF)</label>
+            <input type="hidden" name="empleo_id" id="mP-id">
+            <input type="hidden" name="empleo_titulo" id="mP-titulo-h">
+            <div class="fg"><label>📎 Adjunta tu hoja de vida (PDF)</label>
                 <label class="fl">📄 Seleccionar PDF<input type="file" name="hoja_vida" accept=".pdf" required></label>
             </div>
             <div class="modal-btns">
@@ -339,50 +345,44 @@ function filtrar(){
         c.style.display=(ob&&ot)?'':'none';
     });
 }
-function abrirPostular(id, titulo){
-    document.getElementById('mPostular-id').value=id;
-    document.getElementById('mPostular-titulo-h').value=titulo;
-    document.getElementById('mPostular-titulo').textContent='💼 '+titulo;
+function abrirPostular(id,titulo){
+    document.getElementById('mP-id').value=id;
+    document.getElementById('mP-titulo-h').value=titulo;
+    document.getElementById('mP-titulo').textContent='💼 '+titulo;
     document.getElementById('mPostular').classList.add('active');
 }
-function verHojaVida(empleoId, titulo){
+function confirmarEliminarEmpleo(id,titulo){
+    document.getElementById('del-emp-id').value=id;
+    document.getElementById('del-emp-titulo').textContent='"'+titulo+'"';
+    document.getElementById('mEliminarEmpleo').classList.add('active');
+}
+function verHV(empleoId,titulo){
     document.getElementById('mHV-titulo').textContent='📄 Hojas de vida — '+titulo;
-    document.getElementById('mHV-contenido').innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Cargando...</div>';
+    document.getElementById('mHV-cont').innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Cargando...</div>';
     document.getElementById('mVacantes').classList.remove('active');
     document.getElementById('mHV').classList.add('active');
-    fetch('acciones/obtener_hojas_vida.php?empleo_id='+empleoId)
-    .then(r=>r.json()).then(data=>{
-        const c=document.getElementById('mHV-contenido');
-        if(data.length===0){c.innerHTML='<div class="ns"><div style="font-size:36px;margin-bottom:10px">📭</div><p>Aún no hay postulantes.</p></div>';return;}
+    fetch('acciones/obtener_hojas_vida.php?empleo_id='+empleoId).then(r=>r.json()).then(data=>{
+        const c=document.getElementById('mHV-cont');
+        if(!data.length){c.innerHTML='<div class="ns"><div style="font-size:36px;margin-bottom:10px">📭</div><p>Sin postulantes aún.</p></div>';return;}
         c.innerHTML=data.map(p=>`
             <div class="hv-item" id="hv-${p.id}">
-                <div class="hv-header">
-                    <div class="hv-nombre">👤 ${p.nombre}</div>
-                    <span class="eb ${p.estado==='aceptado'?'ea':p.estado==='rechazado'?'er':'ep'}" id="hv-estado-${p.id}">
-                        ${p.estado==='aceptado'?'✅ Aceptado':p.estado==='rechazado'?'❌ Rechazado':'⏳ Pendiente'}
-                    </span>
-                </div>
-                <div class="hv-info">📧 ${p.email} &nbsp;·&nbsp; 📅 ${p.fecha}</div>
-                ${p.hoja_vida?`<a class="hv-link" href="uploads/${p.hoja_vida}" target="_blank">📄 Ver hoja de vida (PDF)</a>`:'<span style="color:#aaa;font-size:13px">Sin PDF adjunto</span>'}
-                ${p.estado==='pendiente'?`
-                <div class="hv-acciones">
-                    <button class="ba ba-acep" onclick="responderPost(${p.id},'aceptado')">✅ Aceptar</button>
-                    <button class="ba ba-rech" onclick="responderPost(${p.id},'rechazado')">❌ Rechazar</button>
-                </div>`:''}
-            </div>
-        `).join('');
+                <div class="hv-header"><div class="hv-nombre">👤 ${p.nombre}</div>
+                <span class="eb ${p.estado==='aceptado'?'ea':p.estado==='rechazado'?'er':'ep'}" id="hv-est-${p.id}">${p.estado==='aceptado'?'✅ Aceptado':p.estado==='rechazado'?'❌ Rechazado':'⏳ Pendiente'}</span></div>
+                <div class="hv-info">📧 ${p.email} · 📅 ${p.fecha}</div>
+                ${p.hoja_vida?`<a class="hv-link" href="uploads/${p.hoja_vida}" target="_blank">📄 Ver hoja de vida (PDF)</a>`:'<span style="color:#aaa;font-size:13px">Sin PDF</span>'}
+                ${p.estado==='pendiente'?`<div class="hv-acciones"><button class="ba ba-acep" onclick="respP(${p.id},'aceptado')">✅ Aceptar</button><button class="ba ba-rech" onclick="respP(${p.id},'rechazado')">❌ Rechazar</button></div>`:''}
+            </div>`).join('');
     });
 }
-function responderPost(id, estado){
+function respP(id,estado){
     fetch('acciones/responder_postulacion.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`postulacion_id=${id}&estado=${estado}`})
     .then(r=>r.json()).then(d=>{
         if(d.ok){
-            const badge=document.getElementById('hv-estado-'+id);
-            badge.className='eb '+(estado==='aceptado'?'ea':'er');
-            badge.textContent=estado==='aceptado'?'✅ Aceptado':'❌ Rechazado';
+            const b=document.getElementById('hv-est-'+id);
+            b.className='eb '+(estado==='aceptado'?'ea':'er');
+            b.textContent=estado==='aceptado'?'✅ Aceptado':'❌ Rechazado';
             const item=document.getElementById('hv-'+id);
-            const acc=item.querySelector('.hv-acciones');
-            if(acc) acc.remove();
+            const acc=item.querySelector('.hv-acciones'); if(acc) acc.remove();
         }
     });
 }
